@@ -7,8 +7,8 @@
 int main(int argc, char *argv[]) {
     int i;
 
-    if (argc > 2) {
-        printf("too many arguments");
+    if (argc != 2) {
+        printf("please input correct arguments\n");
         exit();
     }
 
