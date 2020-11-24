@@ -327,6 +327,15 @@ sfence_vma()
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
+/** 
+ * PTE flag bits
+ * PTE_V: PTE是否可用
+ * PTE_R: 读权限
+ * PTE_W: 写权限
+ * PTE_X: CPU是否能读取页面内容作为指令并执行
+ * PTE_U: user mode下能否访问
+ **/
+
 #define PTE_V (1L << 0) // valid
 #define PTE_R (1L << 1)
 #define PTE_W (1L << 2)
