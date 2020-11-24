@@ -328,12 +328,16 @@ sfence_vma()
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
 /** 
- * PTE flag bits
- * PTE_V: PTE是否可用
- * PTE_R: 读权限
- * PTE_W: 写权限
- * PTE_X: CPU是否能读取页面内容作为指令并执行
- * PTE_U: user mode下能否访问
+ * PTE flag bits (Low 11 bits from bit0 to bit10)
+ * PTE_V: Valid, PTE是否可用
+ * PTE_R: Readable, 读权限
+ * PTE_W: Writable, 写权限
+ * PTE_X: Executable, CPU是否能读取页面内容作为指令并执行
+ * PTE_U: User, user mode下能否访问
+ * PTE_G: Global
+ * PTE_A: Accessed
+ * PTE_D: Dirty
+ * PTE_RSW: 3 bits reserved for supervisor software
  **/
 
 #define PTE_V (1L << 0) // valid
