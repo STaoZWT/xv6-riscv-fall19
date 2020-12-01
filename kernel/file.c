@@ -16,7 +16,7 @@
 struct devsw devsw[NDEV];
 struct {
   struct spinlock lock;
-  struct file file[NFILE];
+  // struct file file[NFILE];
 } ftable;
 
 void
@@ -32,13 +32,21 @@ filealloc(void)
   struct file *f;
 
   acquire(&ftable.lock);
-  for(f = ftable.file; f < ftable.file + NFILE; f++){
-    if(f->ref == 0){
-      f->ref = 1;
-      release(&ftable.lock);
-      return f;
-    }
+  f = bd_malloc(sizeof(struct file));
+  if (f) {
+    memset(f, 0, sizeof(struct file));
+    f->ref = 1;
+    release(&ftable.lock);
+    return f;
   }
+  
+  // for(f = ftable.file; f < ftable.file + NFILE; f++){
+  //   if(f->ref == 0){
+  //     f->ref = 1;
+  //     release(&ftable.lock);
+  //     return f;
+  //   }
+  // }
   release(&ftable.lock);
   return 0;
 }
@@ -59,6 +67,7 @@ filedup(struct file *f)
 void
 fileclose(struct file *f)
 {
+  
   struct file ff;
 
   acquire(&ftable.lock);
@@ -68,6 +77,7 @@ fileclose(struct file *f)
     release(&ftable.lock);
     return;
   }
+  
   ff = *f;
   f->ref = 0;
   f->type = FD_NONE;
@@ -80,6 +90,8 @@ fileclose(struct file *f)
     iput(ff.ip);
     end_op(ff.ip->dev);
   }
+
+  bd_free(f);
 }
 
 // Get metadata about file f.
