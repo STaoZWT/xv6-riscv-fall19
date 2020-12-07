@@ -255,9 +255,6 @@ bd_mark(void *start, void *stop)
     }
   }
 }
-int addr_in_range(void *addr,void *left,void *right,int size){
-  return (addr>=left)&&((addr+size)<right);
-}
 
 // If a block is marked as allocated and the buddy is free, put the
 // buddy on the free list at size k.
@@ -265,13 +262,10 @@ int
 bd_initfree_pair(int k, int bi, void *left, void *right) {
   int buddy = (bi % 2 == 0) ? bi+1 : bi-1;
   int free = 0;
-  // if(bit_isset(bd_sizes[k].alloc, bi) !=  bit_isset(bd_sizes[k].alloc, buddy)) {
   if (bitD2_isset(bd_sizes[k].alloc, bi)) {
     // one of the pair is free
     free = BLK_SIZE(k);
-    // if(bit_isset(bd_sizes[k].alloc, bi))
     if (addr(k, bi) >= left && (addr(k, bi) + free) < right)
-    // if(addr_in_range(addr(k,bi),left,right,free))
       lst_push(&bd_sizes[k].free, addr(k, bi));   // put buddy on free list
     else
       lst_push(&bd_sizes[k].free, addr(k, buddy));      // put bi on free list
