@@ -283,6 +283,51 @@ create(char *path, short type, short major, short minor)
   return ip;
 }
 
+uint64 sys_symlink(void) {
+  //实现symlink系统调用，参照硬链接sys_link()和创建文件sys_create()的写法
+  char target[MAXPATH];
+  char path[MAXPATH];
+  struct file *f;
+  struct inode *ip;
+  int fd, len;
+
+  //取得路径和名称
+  if ((argstr(0, target, MAXPATH)) < 0 || argstr(1, path, MAXPATH) < 0)
+    return -1;
+  len = strlen(target);
+  //开始写日志
+  begin_op(ROOTDEV);
+  //建立新文件
+  ip = create(path, T_SYMLINK, 0, 0);
+  if (ip == 0) {
+    end_op(ROOTDEV);
+    return -1;
+  }
+  //分配空间
+  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+    if(f)
+      fileclose(f);
+    iunlockput(ip);
+    end_op(ROOTDEV);
+    return -1;
+  }
+  //软链接文件写入信息
+  f->type = FD_INODE;
+  f->ip = ip;
+  writei(ip, 0, (uint64)&len, 0, sizeof(int));
+  writei(ip, 0, (uint64)target, sizeof(int), len+1);
+  //更新inode，解锁
+  iupdate(ip);
+  iunlockput(ip);
+  //结束日志
+  end_op(ROOTDEV);
+
+
+
+
+  return 0;
+}
+
 uint64
 sys_open(void)
 {
@@ -296,6 +341,7 @@ sys_open(void)
     return -1;
 
   begin_op(ROOTDEV);
+  //begin logging
 
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
@@ -328,6 +374,55 @@ sys_open(void)
     iunlockput(ip);
     end_op(ROOTDEV);
     return -1;
+  }
+
+  // open系统调用打开软链接：
+  // 若文件不存在，则返回失败
+  // 若omode为O_NOFOLLOW，则打开symlink(不打开symlink指向的文件)
+  // 若被软链接的也为symlink类型，则需要递归寻找直到非symlink类型
+  // 若产生循环，则返回错误代码(阈值为10)
+  if (omode & O_NOFOLLOW || ip->type != T_SYMLINK) {
+    //非寻找软链接，跳过
+  } else {
+    //递归打开文件
+    int MAX_COUNT = 10;
+    int len;
+    char target[MAXPATH];
+    for (int i = 0; i < MAX_COUNT; i++) {
+      //读inode指向的软链接文件信息：长度，target
+      readi(ip, 0, (uint64)&len, 0, sizeof(int));
+      readi(ip, 0, (uint64)target, sizeof(int), len+1);
+      //取消当前inode锁
+      iunlockput(ip);
+      //递归寻路
+      if ((ip = namei(target)) == 0) {
+        //未找到
+        end_op(ROOTDEV);
+        return -1;
+      }
+      //inode加锁，进行判断
+      ilock(ip);
+      if(ip->type == T_DIR && omode != O_RDONLY){
+        //目录的情况
+        iunlockput(ip);
+        end_op(ROOTDEV);
+        return -1;
+      }
+      if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
+        iunlockput(ip);
+        end_op(ROOTDEV);
+        return -1;
+      }
+      //非symlink或目录,break
+      if (ip->type != T_SYMLINK)
+        break;
+      if (i == MAX_COUNT - 1) {
+        //未找到
+        iunlockput(ip);
+        end_op(ROOTDEV);
+        return -1;
+      }
+    }
   }
 
   if(ip->type == T_DEVICE){
